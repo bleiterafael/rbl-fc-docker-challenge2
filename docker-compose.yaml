@@ -1,0 +1,53 @@
+version: '3'
+
+services:
+
+  db:
+    image: mysql:5.7
+    command: --innodb-use-native-aio=0
+    container_name: db
+    restart: always
+    tty: true
+    volumes:
+      - ./mysql:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=db
+      - MYSQL_ROOT_PASSWORD=root
+    networks:
+      - netchallenge2
+  
+  app:
+    build:
+      context: ./nodejs
+      dockerfile: Dockerfile
+    container_name: app
+    entrypoint: dockerize -wait tcp://db:3306 -timeout 20s node index.js
+    networks:
+      - netchallenge2
+    volumes:
+      - ./nodejs/app:/usr/src/app
+      - /usr/src/app/node_modules
+    tty: true
+    ports:
+      - "3000:3000"
+    depends_on: 
+      - db
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    image: bleiterafael/rbl-fc-challenge2-nginx
+    container_name: nginx
+    entrypoint: dockerize -wait tcp://app:3000 -timeout 20s /docker-entrypoint.sh nginx -g "daemon off";
+    networks: 
+      - netchallenge2
+    ports:
+      - "8080:80"
+    depends_on: 
+      - app
+
+
+networks:
+  netchallenge2:
+    driver: bridge
